@@ -5,7 +5,7 @@ import numpy as np
 DECAY_RATE = 0.1
 
 # Diffusion constant
-DIFFUSION_RATE = 0.98
+DIFFUSION_RATE = 0.92
 
 # Screen size
 SCREEN_X = 640
@@ -15,10 +15,10 @@ SCREEN_Y = 640
 ANGLE_BIAS = math.pi / 8
 
 # Number of agents
-N = 10
+N = 100
 
 # True == draw grid
-DRAW_GRID = False
+DRAW_GRID = True
 
 # Size of grid
 GRID_SIZE = 100
