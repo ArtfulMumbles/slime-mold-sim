@@ -16,6 +16,8 @@ The code is written in Python 3.11 and uses the following libraries: `numpy`, `r
 
 ## Usage
 
+The main simulation is **`SlimeMold.py`**
+
 The simulation has many parameters that can be modified. It is important that you create a **`/results`**
 directory such that simulation results can be saved. When calling the `simulation()` function, using 
 parameter `True` will output a map of agents while `False` will output a map of trails.
