@@ -8,10 +8,10 @@ from PIL import Image
 ITERATIONS = 1000
 
 # Only show map every this many frames
-RENDER_SPEED = 4
+RENDER_SPEED = 1
 
 # map of MAP_SIZE x MAP_SIZE pixels
-MAP_SIZE = 600
+MAP_SIZE = 20
 
 # Blur magnitude
 BLUR_STRENGTH = 3
@@ -20,11 +20,11 @@ BLUR_STRENGTH = 3
 DISSIPATE_TARGET = 200_000
 
 # Number of agents
-AGENTS_NUM = 20_000
+AGENTS_NUM = 10
 
 # Max speed and sensor distance
-SPEED = 5
-LOOK_DISTANCE = 10
+SPEED = 1
+LOOK_DISTANCE = 9
 
 # Strength of trails left by agents
 TRAIL_STRENGTH = 1
@@ -185,7 +185,7 @@ def show_map(m, save, do):
     _colored[:,:,1] = 0
     _colored[:,:,2] = 0
     _colored[:,:,0] = _map
-    _colored[_colored < 0] = -_colored[_colored < 0]
+    _colored[_colored < 0] = - _colored[_colored < 0]
     _colored[_colored > 255] = 255 - _colored[_colored > 255]
     _colored[_colored < 0] = 0
     
