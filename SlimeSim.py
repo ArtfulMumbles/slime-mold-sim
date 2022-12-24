@@ -11,17 +11,17 @@ from os import mkdir
 
 # SIMULATION PARAMETERS
 # Number of steps
-NUM_STEPS = 1000
+NUM_STEPS = 5000
 
 # How often to render frames
-RENDER_SPEED = 1
+RENDER_SPEED = 2
 
 # MODEL PARAMETERS
 # Map size in pixels
-MAP_SIZE = 100
+MAP_SIZE = 1200
 
 # Number of agents as percentage of map area
-NUM_AGENTS = int(MAP_SIZE ** 2 * 0.15)
+NUM_AGENTS = int(MAP_SIZE ** 2 * 0.1)
 
 # Size of starting circle as percentage of map size
 START_CIRCLE = 0.3
@@ -85,85 +85,80 @@ def init_sim():
 
             # Give agents random orientations
             # Generate random angle 0 to 2pi
-            agents[i, 2] = np.random.random() * 2 * np.pi
+            agents[i, 2] = 2 * np.pi * np.random.random()
             break;
         
 # Update positions of agents and restrict them back in bounds if necessary.
 #  If an agent is within bounds, deposit attractant at its position on the map.
 def motor_stage(_agents, _map):
-    
-    for i in range(NUM_AGENTS):
-        # Update x coordinate
-        _agents[i, 0] += STEP_SIZE * np.cos(_agents[i, 2]) * TIME_STEP
-        # Update y coordinate
-        _agents[i, 1] += STEP_SIZE * np.sin(_agents[i, 2]) * TIME_STEP
+    # Update x and y coordinates of agents using numpy's cos and sin functions
+    _agents[:, 0] += STEP_SIZE * np.cos(_agents[:, 2]) * TIME_STEP
+    _agents[:, 1] += STEP_SIZE * np.sin(_agents[:, 2]) * TIME_STEP
 
-        # Check if the agent is out of bounds
-        if _agents[i, 0] < 0 or _agents[i, 0] > MAP_SIZE - 1 or _agents[i, 1] < 0 or _agents[i, 1] > MAP_SIZE - 1:
-            # Restrict the agent back in bounds
-            _agents[i, 0] = max(0, min(_agents[i, 0], MAP_SIZE - 1))
-            _agents[i, 1] = max(0, min(_agents[i, 1], MAP_SIZE - 1))
-            # Update agent to have new, random angle
-            _agents[i, 2] = np.random.random() * 2 * np.pi
-        else:
-            # Deposit attractant at rounded locations of each agent
-            _map[int(_agents[i, 0]), int(_agents[i, 1])] += DEPOSITION_RATE * TIME_STEP
+    # Check if any agents are out of bounds
+    out_of_bounds = (_agents[:, 0] < 0) | (_agents[:, 0] > MAP_SIZE - 1) | (_agents[:, 1] < 0) | (_agents[:, 1] > MAP_SIZE - 1)
+
+    # Restrict out-of-bounds agents back in bounds and give them new, random angles
+    _agents[out_of_bounds, 0] = np.clip(_agents[out_of_bounds, 0], 0, MAP_SIZE - 1)
+    _agents[out_of_bounds, 1] = np.clip(_agents[out_of_bounds, 1], 0, MAP_SIZE - 1)
+    _agents[out_of_bounds, 2] = np.random.random(size=out_of_bounds.sum()) * 2 * np.pi
+
+    # Only deposit attractant at rounded locations of in-bounds agents
+    in_bounds = ~out_of_bounds
+    _map[np.rint(_agents[in_bounds, 0]).astype(int), np.rint(_agents[in_bounds, 1]).astype(int)] += DEPOSITION_RATE * TIME_STEP
 
 def sensor_stage(_agents, _map):
-    for i in range(NUM_AGENTS):
-        # Calculate sensor weights in front of agent
-        forward_weight = sense(_agents[i], _map, 0)
-        left_weight = sense(_agents[i], _map, SENSOR_ANGLE)
-        right_weight = sense(_agents[i], _map, -SENSOR_ANGLE)
+    # Calculate sensor weights in front of each agent
+    forward_weights = sense(_agents, _map, 0)
+    left_weights = sense(_agents, _map, SENSOR_ANGLE)
+    right_weights = sense(_agents, _map, -SENSOR_ANGLE)
 
-        # Random steer factor
-        random_steer = np.random.random()
-        
-        # Change agents orientation
-        if (forward_weight > left_weight and forward_weight > right_weight):
-            _agents[i, 2] += 0
-        elif (forward_weight < left_weight and forward_weight < right_weight):
-            _agents[i, 2] += (random_steer - 0.5) * 2 * ROTATION_ANGLE * TIME_STEP
-        elif (left_weight < right_weight):
-            _agents[i, 2] -= random_steer * ROTATION_ANGLE * TIME_STEP
-        elif (right_weight < left_weight):
-            _agents[i, 2] += random_steer * ROTATION_ANGLE * TIME_STEP
+    # Generate random steer factors
+    random_steers = np.random.uniform(low=0, high=1.2, size=NUM_AGENTS)
+
+    # Change orientation of agents based on sensor weights
+    change = np.zeros(NUM_AGENTS)
+    change[(forward_weights < left_weights) &
+     (forward_weights < right_weights)] = (random_steers[(forward_weights < left_weights) & 
+     (forward_weights < right_weights)] - 0.5) * 2 * ROTATION_ANGLE * TIME_STEP
+    change[(left_weights < right_weights)] -= random_steers[(left_weights < right_weights)] * ROTATION_ANGLE * TIME_STEP
+    change[(right_weights < left_weights)] += random_steers[(right_weights < left_weights)] * ROTATION_ANGLE * TIME_STEP
+    _agents[:, 2] += change
+
 
         
-    
-def sense(_agent, _map, _sensor_angle_offset):
-    # Calculate sensor offset distance
-    sensor_offset_x = np.cos(_agent[2] + _sensor_angle_offset) * SENSOR_OFFSET
-    sensor_offset_y = np.sin(_agent[2] + _sensor_angle_offset) * SENSOR_OFFSET
+
+def sense(_agents, _map, _sensor_angle_offset):
+    # Calculate sensor offset distances
+    sensor_offset_x = np.cos(_agents[:, 2] + _sensor_angle_offset) * SENSOR_OFFSET
+    sensor_offset_y = np.sin(_agents[:, 2] + _sensor_angle_offset) * SENSOR_OFFSET
 
     # Determine sensor locations and ensure they are within bounds
-    sensor_x = max(0, min(int(_agent[0] + sensor_offset_x), MAP_SIZE - 1))
-    sensor_y = max(0, min(int(_agent[1] + sensor_offset_y), MAP_SIZE - 1))
+    sensor_x = np.clip(_agents[:, 0] + sensor_offset_x, 0, MAP_SIZE - 1).astype(int)
+    sensor_y = np.clip(_agents[:, 1] + sensor_offset_y, 0, MAP_SIZE - 1).astype(int)
 
-    # Return sensed value
-    return _map[sensor_x][sensor_y]
+    # Return sensed values
+    return _map[sensor_x, sensor_y]
+
 
 def update_trails(_map):
     _map = cv2.GaussianBlur(_map, (DIFFUSION_KERNAL, DIFFUSION_KERNAL), 0)
-    _map *= 1 - DECAY_RATE
+    _map = np.multiply(_map, 1.0 - DECAY_RATE) 
 
-
-cnt = 0
 
 def draw_map(_map, _id, save):
-    global cnt
     _colored = np.zeros((MAP_SIZE + 4, MAP_SIZE + 4))
     _colored[2:-2, 2:-2] = _map
+
+    _colored = np.log(_colored + 1)
 
     _colored = np.interp(_colored, (_colored.min(), _colored.max()), (0, 255))
     _colored = np.around(_colored).astype(np.uint8)
 
     image = Image.fromarray(_colored)
     image.save(f"results/{_id}/saves/{str.rjust(str(save), 4, '0')}.png")
-    cnt += 1
 
 def draw_agents(_agents, _id, save):
-    global cnt
     _colored = np.zeros((MAP_SIZE, MAP_SIZE, 3), dtype=np.uint8)
     for x, y in _agents[:,:2]:
         _colored[int(y), int(x)] = [255, 255, 255]
